@@ -1,11 +1,13 @@
 /*	Author: Andrew Shim
  *  	Partner(s) Name: 
  *	Lab Section: 21
- *	Assignment: Lab # 11 Exercise # 1
+ *	Assignment: Lab # 11 Exercise # 2
  *	Exercise Description: [optional - include for your own benefit]
  *
  *	I acknowledge all content contained herein, excluding template or example
  *	code, is my own original work.
+ *
+ * 	Demo: https://drive.google.com/file/d/1WdabA2wogcg8imLb8XRkD7Wr1DiZCCmf/view?usp=sharing
  */
 #include <avr/io.h>
 #include <timer.h>
@@ -97,23 +99,61 @@ int Keypad_Tick(int state) {
     return state;
 }
 
+enum LCD_States {LCD_Start, LCD_INIT};
+unsigned char phrase[] = "CS120B is Legend... wait for it DARY!           ";
+unsigned char pos = 0x00;
+unsigned char lcd[16];
+int LCD_Tick(int state) {
+    switch(state) {
+	case LCD_Start:
+	    state = LCD_INIT;
+	    break;
+	case LCD_INIT:
+	    state = LCD_INIT;
+	    break;
+	default:
+	    state = LCD_Start;
+	    break;
+    }
+    switch(state) {
+	case LCD_INIT:
+	    for(int j = 0; j < 16; j++) {
+		lcd[j] = phrase[(j + pos) % 48];
+	    }
+	    pos = (pos + 1) % 48;
+	    LCD_DisplayString(1, lcd);
+	    break;
+	default:
+	    break;
+    }
+    return state;
+}
+
 int main(void) {
     /* Insert DDR and PORT initializations */
+    DDRA = 0xFF; PORTA = 0x00;
     DDRB = 0xFF; PORTB = 0x00;
     DDRC = 0xF0; PORTC = 0x0F;
+    DDRD = 0xFF; PORTD = 0x00;
 
-    static task task1;
-    task *tasks[] = {&task1};
+    LCD_init();
+    static task task1, task2;
+    task *tasks[] = {&task1, &task2};
     const unsigned short numTasks = sizeof(tasks)/sizeof(task*);
     
     const char start = -1;
 
     task1.state = start;
-    task1.period = 50;
+    task1.period = 10;
     task1.elapsedTime = task1.period;
     task1.TickFct = &Keypad_Tick;
 
-    TimerSet(50);
+    task2.state = start;
+    task2.period = 20;
+    task2.elapsedTime = task2.period;
+    task2.TickFct = &LCD_Tick;
+
+    TimerSet(10);
     TimerOn();
     
     unsigned short i;
@@ -123,7 +163,7 @@ int main(void) {
 		tasks[i]->state = tasks[i]->TickFct(tasks[i]->state);
 		tasks[i]->elapsedTime = 0;
 	    }
-	    tasks[i]->elapsedTime += 50;
+	    tasks[i]->elapsedTime += 1;
 	}
 	while(!TimerFlag);
 	TimerFlag = 0;
